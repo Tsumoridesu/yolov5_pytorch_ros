@@ -3,11 +3,10 @@ import os
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-
 # Python imports
 import numpy as np
 import cv2
-
+import math
 # ROS imports
 import rospy
 import scipy.io as sio
@@ -81,7 +80,7 @@ class Detector:
         # Load model
         self.model = attempt_load(
             self.weights_path, map_location=self.device)  # load FP32 model
-        self.stride = int(self.model.stride.max())      # model stride
+        self.stride = int(self.model.stride.max())  # model stride
         self.network_img_size = check_img_size(
             self.network_img_size, s=self.stride)  # check img_size
 
@@ -114,7 +113,7 @@ class Detector:
 
         # Define subscribers
         self.image_sub = rospy.Subscriber(
-            self.image_topic, Image, self.image_cb, queue_size=1, buff_size=2**24)
+            self.image_topic, Image, self.image_cb, queue_size=1, buff_size=2 ** 24)
 
         # Define publishers
         self.pub_ = rospy.Publisher(
@@ -152,15 +151,15 @@ class Detector:
                 # Get xmin, ymin, xmax, ymax, confidence and class
                 xmin, ymin, xmax, ymax, conf, det_class = detection
                 pad_x = max(self.h - self.w, 0) * \
-                    (self.network_img_size/max(self.h, self.w))
+                        (self.network_img_size / max(self.h, self.w))
                 pad_y = max(self.w - self.h, 0) * \
-                    (self.network_img_size/max(self.h, self.w))
-                unpad_h = self.network_img_size-pad_y
-                unpad_w = self.network_img_size-pad_x
-                xmin_unpad = ((xmin-pad_x//2)/unpad_w)*self.w
-                xmax_unpad = ((xmax-xmin)/unpad_w)*self.w + xmin_unpad
-                ymin_unpad = ((ymin-pad_y//2)/unpad_h)*self.h
-                ymax_unpad = ((ymax-ymin)/unpad_h)*self.h + ymin_unpad
+                        (self.network_img_size / max(self.h, self.w))
+                unpad_h = self.network_img_size - pad_y
+                unpad_w = self.network_img_size - pad_x
+                xmin_unpad = ((xmin - pad_x // 2) / unpad_w) * self.w
+                xmax_unpad = ((xmax - xmin) / unpad_w) * self.w + xmin_unpad
+                ymin_unpad = ((ymin - pad_y // 2) / unpad_h) * self.h
+                ymax_unpad = ((ymax - ymin) / unpad_h) * self.h + ymin_unpad
 
                 # Populate darknet message
                 detection_msg = BoundingBox()
@@ -168,6 +167,7 @@ class Detector:
                 detection_msg.xmax = int(xmax_unpad)
                 detection_msg.ymin = int(ymin_unpad)
                 detection_msg.ymax = int(ymax_unpad)
+                detection_msg.yaw = float(-(((xmin_unpad + xmax_unpad) / 2) - 640) / 640 * math.pi)
                 detection_msg.probability = float(conf)
                 detection_msg.Class = self.names[int(det_class)]
 
@@ -196,13 +196,13 @@ class Detector:
 
         # Add padding
         if (self.w > self.h):
-            self.padded_image[(self.w-self.h)//2: self.h +
-                              (self.w-self.h)//2, :, :] = img
+            self.padded_image[(self.w - self.h) // 2: self.h +
+                                                      (self.w - self.h) // 2, :, :] = img
         else:
-            self.padded_image[:, (self.h-self.w)//2: self.w +
-                              (self.h-self.w)//2, :] = img
+            self.padded_image[:, (self.h - self.w) // 2: self.w +
+                                                         (self.h - self.w) // 2, :] = img
         # Resize and normalize
-        input_img = cv2.resize(self.padded_image, (self.network_img_size, self.network_img_size))/255.
+        input_img = cv2.resize(self.padded_image, (self.network_img_size, self.network_img_size)) / 255.
 
         # Channels-first
         input_img = np.transpose(input_img, (2, 0, 1))
@@ -225,6 +225,7 @@ class Detector:
             y_p1 = output.bounding_boxes[index].ymin
             x_p3 = output.bounding_boxes[index].xmax
             y_p3 = output.bounding_boxes[index].ymax
+
             confidence = output.bounding_boxes[index].probability
 
             # Set class color
@@ -234,7 +235,7 @@ class Detector:
             cv2.rectangle(imgOut, (int(x_p1), int(y_p1)), (int(x_p3), int(
                 y_p3)), (color[0], color[1], color[2]), thickness)
             text = ('{:s}: {:.3f}').format(label, confidence)
-            cv2.putText(imgOut, text, (int(x_p1), int(y_p1+20)), font,
+            cv2.putText(imgOut, text, (int(x_p1), int(y_p1 + 20)), font,
                         fontScale, (255, 255, 255), thickness, cv2.LINE_AA)
 
         # Publish visualization image

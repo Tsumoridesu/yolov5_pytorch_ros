@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
     <!-- Camera topic and weights, config and classes files -->
+    <arg name="image_topic"	                default="/image/mercator"/>
 	<arg name="weights_path"	    default="$(find yolov5_pytorch_ros)/weights/best.pt"/>
 
     <!-- Published topics -->

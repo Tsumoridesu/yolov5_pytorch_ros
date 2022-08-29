@@ -87,7 +87,11 @@ class C3(nn.Module):
     def forward(self, x):
         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))
 
-
+class SPPF(nn.Module):  # export-friendly version of nn.SiLU()
+    @staticmethod
+    def forward(x):
+        return x * torch.sigmoid(x)
+        
 class SPP(nn.Module):
     # Spatial pyramid pooling layer used in YOLOv3-SPP
     def __init__(self, c1, c2, k=(5, 9, 13)):
